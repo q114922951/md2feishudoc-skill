@@ -1,13 +1,12 @@
-# Markdown → 飞书文档
+# 飞书文档 ↔ Markdown 双向转换
 
-将 Markdown 文件导入为飞书云文档，支持：
-- 自动 OAuth 授权与 Token 管理
-- 标题、列表、表格、粗体等格式
-- 文档所有权转移（导入时或独立操作）
-- 8 项文档校验
+将飞书文档与 Markdown 文件进行双向转换：
+- **Markdown → 飞书**：导入 Markdown 到飞书云文档
+- **飞书 → Markdown**：导出飞书文档为 Markdown
 
 ## 功能特性
 
+### Markdown → Feishu
 - ✅ 用户身份创建文档（文档归属用户）
 - ✅ 应用身份创建文档（文档归属应用）
 - ✅ 自动 Token 管理（OAuth 授权）
@@ -16,6 +15,15 @@
 - ✅ 会话记忆（只询问一次）
 - ✅ 分享到群聊
 - ✅ 文档校验（8 项快速校验）
+
+### Feishu → Markdown
+- ✅ 支持普通文档（docx）和 Wiki
+- ✅ 完整格式保留（标题、列表、表格、代码块）
+- ✅ 图片下载到本地（可选）
+- ✅ 纯文本模式（可选）
+- ✅ 数学公式支持
+- ✅ 文件夹递归查找（Wiki）
+- ✅ Windows 编码支持
 
 ## 安装依赖
 
@@ -29,7 +37,7 @@ pip install requests
 
 在 [飞书开发者后台](https://open.feishu.cn/app) 创建或选择应用：
 
-**必需权限**（用户身份）：
+**必需权限**：
 - `docx:document` — 创建及编辑新版文档
 - `auth:user.id:read` — 获取用户身份信息
 - `drive:drive:readonly` — 读取云空间（所有权转移需要）
@@ -59,7 +67,9 @@ pip install requests
 
 ## 使用方式
 
-### 1. 导入文档（用户身份）
+### 方向一：Markdown → 飞书
+
+#### 1. 导入文档（用户身份）
 
 ```bash
 # 首次使用：会提示 OAuth 授权
@@ -71,10 +81,9 @@ python md_to_feishu_doc.py \
 # 授权后会自动询问是否转移所有权
 ```
 
-### 2. 导入时自动转移所有权
+#### 2. 导入时自动转移所有权
 
 ```bash
-# 跳过询问，自动转移所有权给当前用户
 python md_to_feishu_doc.py \
   --source-type file \
   --file-path ./README.md \
@@ -82,28 +91,7 @@ python md_to_feishu_doc.py \
   --auto-transfer
 ```
 
-### 3. 导入时跳过所有权转移
-
-```bash
-# 不转移所有权，也不询问
-python md_to_feishu_doc.py \
-  --source-type file \
-  --file-path ./README.md \
-  --title "项目文档" \
-  --skip-transfer-prompt
-```
-
-### 4. 独立转移所有权
-
-导入后，可以单独转移已有文档的所有权：
-
-```bash
-python md_to_feishu_doc.py \
-  --transfer-ownership \
-  --document-token "doccnxxxxxxxxxx"
-```
-
-### 5. 使用动态 Token（推荐）
+#### 3. 使用动态 Token（推荐）
 
 ```bash
 python md_to_feishu_doc.py \
@@ -114,20 +102,17 @@ python md_to_feishu_doc.py \
   --auto-transfer
 ```
 
-### 6. 应用身份创建（不推荐）
+#### 4. 独立转移所有权
+
+对已有文档执行所有权转移：
 
 ```bash
 python md_to_feishu_doc.py \
-  --source-type file \
-  --file-path ./report.md \
-  --title "测试报告" \
-  --use-app-identity
+  --transfer-ownership \
+  --document-token "doccnxxxxxxxxxx"
 ```
 
-**注意**：应用身份创建的文档无法转移所有权给用户。
-
-## 命令行参数
-
+**命令行参数**：
 | 参数 | 必需 | 说明 |
 |------|------|------|
 | `--source-type` | ✅ | 来源类型：`text` / `file` / `url` |
@@ -144,6 +129,85 @@ python md_to_feishu_doc.py \
 | `--document-token` | - | 要转移的文档 token |
 | `--token` | - | user_access_token（动态传入） |
 | `--debug` | - | 调试模式 |
+
+### 方向二：Feishu → Markdown
+
+#### 1. 导出普通文档
+
+```bash
+python feishu_to_md.py \
+  --url "https://www.feishu.cn/docx/XXXXXXXXXXXXXXX"
+```
+
+#### 2. 导出 Wiki 文档
+
+```bash
+python feishu_to_md.py \
+  --url "https://xxx.feishu.cn/wiki/XXXXXXXXXXXXXX"
+```
+
+#### 3. 导出并下载图片
+
+```bash
+python feishu_to_md.py \
+  --url "https://www.feishu.cn/docx/XXXXXXXXXXXXXXX" \
+  --download-images
+```
+
+#### 4. 指定输出路径
+
+```bash
+python feishu_to_md.py \
+  --url "https://www.feishu.cn/docx/XXXXXXXXXXXXXXX" \
+  --output my_document.md
+```
+
+**命令行参数**：
+| 参数 | 必需 | 说明 |
+|------|------|------|
+| `--url` | ✅ | 飞书文档 URL（支持 docx 和 wiki） |
+| `--output` | - | 输出文件路径 |
+| `--config` | - | 配置文件路径 |
+| `--token` | - | 访问令牌（可选） |
+| `--use-raw` | - | 使用纯文本模式 |
+| `--api-base` | - | API 基础地址 |
+| `--download-images` | - | 下载图片到本地 |
+| `--image-dir` | - | 图片保存目录 |
+| `--output-folder` | - | 输出文件夹路径 |
+
+**支持的 URL 格式**：
+- 普通文档：`https://www.feishu.cn/docx/doxcnXXXXXXXXXXXXXXX`
+- Wiki 文档：`https://xxx.feishu.cn/wiki/XXXXXXXXXXXXXX`
+
+## 格式支持
+
+### Markdown → Feishu
+
+| Markdown 语法 | 飞书文档效果 |
+|--------------|-------------|
+| `# 标题` | 标题 1-6 |
+| `## 标题` | 标题 2-6 |
+| `**粗体**` | 粗体文本 |
+| `- 列表项` | 无序列表 |
+| `1. 列表项` | 有序列表 |
+| `| 表格 |` | 原生表格 |
+| ` ```代码``` ` | 代码块 |
+
+### Feishu → Markdown
+
+| 飞书元素 | Markdown 输出 |
+|-----------|--------------|
+| 标题 1-9 | `#` 到 `#########` |
+| 文本段落 | 普通文本 |
+| 无序列表 | `- 列表项` |
+| 有序列表 | `1. 列表项` |
+| 代码块 | ` ```language\ncode\n``` ` |
+| 引用块 | `> 文本` |
+| 待办事项 | `- [ ]` / `- [x]` |
+| 高亮块 | `> emoji 文本` |
+| 数学公式 | `$$公式$$` |
+| 图片 | `![alt](path)` 或原始 URL |
+| 表格 | 标准 Markdown 表格 |
 
 ## 所有权转移
 
@@ -166,19 +230,6 @@ python md_to_feishu_doc.py \
 
 1. **导入时转移**：导入后立即转移
 2. **导入后转移**：对已有文档执行独立转移操作
-
-## Markdown 支持
-
-| Markdown 语法 | 飞书文档效果 |
-|--------------|-------------|
-| `# 标题` | 标题 1 |
-| `## 标题` | 标题 2 |
-| `### 标题` | 标题 3-6 |
-| `**粗体**` | 粗体文本 |
-| `- 列表项` | 无序列表 |
-| `1. 列表项` | 有序列表 |
-| `| 表格 |` | 原生表格 |
-| ` ```代码``` ` | 代码块 |
 
 ## 文档校验
 
@@ -203,7 +254,8 @@ md2feishudoc-skill/
 ├── README.md                   # 本文档
 ├── skill-rules.json            # Skill 触发规则
 ├── config.json.example         # 配置模板
-├── md_to_feishu_doc.py         # 主入口
+├── md_to_feishu_doc.py         # Markdown → 飞书
+├── feishu_to_md.py            # 飞书 → Markdown
 ├── feishu_import_client.py     # import_task API 客户端
 ├── feishu_ownership_transfer.py # 所有权转移模块
 ├── feishu_validator.py         # 文档校验器
@@ -230,6 +282,10 @@ md2feishudoc-skill/
 **现象**：提示需要重新授权
 **解决**：删除 config.json 中的 user_access_token 后重新运行
 
+### 错误：URL 无法识别
+**原因**：URL 格式不正确
+**解决**：检查 URL 格式是否为 `https://www.feishu.cn/docx/...` 或 `https://xxx.feishu.cn/wiki/...`
+
 更多问题请参考 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
 
 ## 作为 Claude Code Skill 使用
@@ -242,17 +298,26 @@ md2feishudoc-skill/
 
 ```bash
 cd ~/.claude/skills
-git clone <repo-url> md-to-feishu-doc
+git clone <repo-url> feishu-md-converter
 ```
 
 ### 触发方式
 
 当用户说以下关键词时，Claude Code 会自动建议使用此 skill：
+
+**Markdown → Feishu**：
 - "导入飞书"
 - "上传飞书"
 - "同步飞书"
 - "md转飞书"
 - "to feishu"
+
+**Feishu → Markdown**：
+- "导出飞书"
+- "飞书转markdown"
+- "feishu to md"
+- "feishu2md"
+- "飞书导出"
 
 ## License
 

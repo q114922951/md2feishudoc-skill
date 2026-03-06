@@ -1,7 +1,7 @@
 {
-  "name": "md-to-feishu-doc",
-  "description": "将 Markdown 文件导入为飞书云文档。支持两种模式：1) import_task 方式 - 上传文件导入；2) 直接创建方式 - 解析文本块创建。包含所有权转移功能、8项文档校验、OAuth授权、Token自动管理。",
-  "version": "2.0.0",
+  "name": "feishu-md-converter",
+  "description": "飞书文档与 Markdown 双向转换工具。支持 Markdown→Feishu（导入）和 Feishu→Markdown（导出）两个方向。包含所有权转移功能、文档校验、OAuth授权、Token自动管理。支持 Wiki 和普通文档。",
+  "version": "3.0.0",
   "trigger": {
     "keywords": [
       "导入飞书",
@@ -12,7 +12,12 @@
       "同步飞书",
       "md转飞书",
       "markdown飞书",
-      "飞书文档"
+      "飞书文档",
+      "导出飞书",
+      "飞书转markdown",
+      "feishu to md",
+      "feishu2md",
+      "飞书导出"
     ],
     "intent_patterns": [
       "导入.*md",
@@ -22,7 +27,13 @@
       "转换.*飞书",
       "创建飞书文档",
       "md.*飞书",
-      "markdown.*飞书"
+      "markdown.*飞书",
+      "飞书.*md",
+      "飞书.*markdown",
+      "导出.*md",
+      "导出.*markdown",
+      "飞书.*导出",
+      "转换.*md"
     ],
     "file_paths": [
       "**/*.md",
@@ -31,37 +42,62 @@
     "content_patterns": [
       "导入.*飞书",
       "上传.*文档",
-      "同步.*飞书"
+      "同步.*飞书",
+      "飞书.*导出",
+      "飞书.*转换"
     ]
   },
   "enforcement": "suggest",
   "parameters": {
+    "direction": {
+      "type": "string",
+      "description": "转换方向：md2feishu（Markdown导入飞书）或 feishu2md（飞书导出为Markdown）",
+      "required": false,
+      "default": "md2feishu",
+      "enum": ["md2feishu", "feishu2md"]
+    },
     "source_type": {
       "type": "string",
-      "description": "来源类型：text/file/url",
+      "description": "来源类型：text/file/url（仅 md2feishu）",
       "required": false,
       "default": "file",
       "enum": ["text", "file", "url"]
     },
     "file_path": {
       "type": "string",
-      "description": "MD 文件路径",
+      "description": "MD 文件路径（md2feishu）或飞书文档 URL（feishu2md）",
+      "required": false
+    },
+    "url": {
+      "type": "string",
+      "description": "飞书文档 URL（feishu2md 需要）",
       "required": false
     },
     "title": {
       "type": "string",
-      "description": "文档标题",
+      "description": "文档标题（md2feishu 需要）",
       "required": false
+    },
+    "output": {
+      "type": "string",
+      "description": "输出文件路径（feishu2md）",
+      "required": false
+    },
+    "download_images": {
+      "type": "boolean",
+      "description": "下载图片到本地（feishu2md）",
+      "required": false,
+      "default": false
     },
     "import_mode": {
       "type": "string",
-      "description": "导入模式：file=import_task API, direct=直接创建 API",
+      "description": "导入模式：file=import_task API, direct=直接创建 API（md2feishu）",
       "required": false,
       "enum": ["file", "direct"]
     },
     "folder_token": {
       "type": "string",
-      "description": "目标文件夹 token",
+      "description": "目标文件夹 token（md2feishu）",
       "required": false
     },
     "no_validate": {
@@ -79,7 +115,10 @@
   },
   "execution": {
     "type": "python",
-    "entry_point": "md_to_feishu_doc.py",
+    "entry_point": {
+      "md2feishu": "md_to_feishu_doc.py",
+      "feishu2md": "feishu_to_md.py"
+    },
     "args_from_trigger": true
   },
   "dependencies": {
@@ -106,35 +145,47 @@
   ],
   "examples": [
     {
-      "description": "交互式导入当前目录的 MD 文件",
+      "description": "将 Markdown 文件导入到飞书",
       "trigger": "把这个 md 文件导入飞书",
-      "context": "user提供了 ./README.md 文件路径"
-    },
-    {
-      "description": "使用 import_task 方式导入",
-      "trigger": "导入到飞书",
       "params": {
-        "file_path": "./docs/guide.md",
-        "title": "使用指南",
-        "import_mode": "file"
+        "direction": "md2feishu",
+        "file_path": "./README.md",
+        "title": "项目文档"
       }
     },
     {
-      "description": "跳过校验直接导入",
-      "trigger": "快速导入到飞书",
+      "description": "将飞书文档导出为 Markdown",
+      "trigger": "把这个飞书文档导出为 Markdown",
       "params": {
-        "file_path": "./release-notes.md",
-        "title": "发布说明",
-        "no_validate": true
+        "direction": "feishu2md",
+        "url": "https://www.feishu.cn/docx/XXXXXXXXXXXXXXX"
       }
     },
     {
-      "description": "导入并转移所有权",
+      "description": "导入并自动转移所有权",
       "trigger": "导入到飞书并转移所有权",
       "params": {
+        "direction": "md2feishu",
         "file_path": "./README.md",
         "title": "项目文档",
         "auto_transfer": true
+      }
+    },
+    {
+      "description": "导出飞书文档并下载图片",
+      "trigger": "导出飞书文档并下载图片",
+      "params": {
+        "direction": "feishu2md",
+        "url": "https://www.feishu.cn/docx/XXXXXXXXXXXXXXX",
+        "download_images": true
+      }
+    },
+    {
+      "description": "导出 Wiki 文档",
+      "trigger": "导出这个 Wiki 文档",
+      "params": {
+        "direction": "feishu2md",
+        "url": "https://xxx.feishu.cn/wiki/XXXXXXXXXXXXXX"
       }
     }
   ]
