@@ -568,7 +568,7 @@ def block_to_markdown(block: Dict[str, Any], client: FeishuDocumentClient) -> st
     return ""
 
 
-def blocks_to_markdown(blocks: List[Dict[str, Any]], client: FeishuDocumentClient) -> str:
+def blocks_to_markdown(blocks: List[Dict[str, Any]], client: FeishuDocumentClient, enable_heading_numbering: bool = False) -> str:
     """将所有块转换为 Markdown 文档"""
     # 构建块 ID 到块的映射
     block_map = {block["block_id"]: block for block in blocks}
@@ -593,15 +593,48 @@ def blocks_to_markdown(blocks: List[Dict[str, Any]], client: FeishuDocumentClien
         )
 
     # 处理表格 - 需要特殊处理
-    return process_blocks_with_tables(ordered_blocks, block_map, client)
+    return process_blocks_with_tables(ordered_blocks, block_map, client, enable_heading_numbering)
+
 
 def process_blocks_with_tables(blocks: List[Dict[str, Any]], block_map: Dict[str, str],
-                              client: FeishuDocumentClient) -> str:
+                              client: FeishuDocumentClient, enable_heading_numbering: bool = False) -> str:
     """处理包含表格的块列表"""
     markdown_lines = []
+    prev_block_type = 0  # 用于段落分隔
+    heading_counters = [0] * 9  # H1-H9 计数器
 
     for i, block in enumerate(blocks):
         block_type = block.get("block_type", 0)
+
+        # 处理标题 (3-11 对应 H1-H9)
+        if 3 <= block_type <= 11:
+            level = block_type - 2  # 3->1 (H1), 4->2 (H2), etc.
+            key = f"heading{level}"
+            heading_data = block.get(key, {})
+            elements = heading_data.get("elements", [])
+            text = elements_to_markdown(elements)
+
+            # 生成编号
+            if enable_heading_numbering:
+                # 更新当前层级的计数器，重置更深层级
+                heading_counters[level - 1] += 1
+                for j in range(level, 9):
+                    heading_counters[j] = 0
+
+                # 构建编号字符串 (如 1, 1.1, 1.1.1) - 跳过零值层级
+                number_parts = [str(heading_counters[j]) for j in range(level) if heading_counters[j] > 0]
+                number_str = ".".join(number_parts) + ". "
+
+                # 移除文本中可能已有的编号
+                text = re.sub(r'^\d+(\.\d+)*\.\s*', '', text)
+
+                # 添加编号
+                text = number_str + text
+
+            prefix = "#" * level
+            markdown_lines.append(f"{prefix} {text}\n")
+            prev_block_type = block_type
+            continue
 
         # 处理表格
         if block_type == 31:
@@ -639,11 +672,35 @@ def process_blocks_with_tables(blocks: List[Dict[str, Any]], block_map: Dict[str
                     for row in table_rows[1:]:
                         markdown_lines.append("| " + " | ".join(row) + " |")
                     markdown_lines.append("")
-        else:
-            # 处理普通块
-            md_text = block_to_markdown(block, client)
-            if md_text:
-                markdown_lines.append(md_text)
+            prev_block_type = block_type
+            continue
+
+        # 处理普通块
+        # 不同类型的 Block 之间增加空行分隔
+        # 计算块类型类别：1=标题，2=文本，3=列表，4=表格，5=其他
+        def get_block_category(bt):
+            if 3 <= bt <= 11:  # H1-H9
+                return 1
+            elif bt == 2:  # text
+                return 2
+            elif bt in [12, 13, 17]:  # bullet, ordered, todo
+                return 3
+            elif bt == 31:  # table
+                return 4
+            else:
+                return 5
+
+        current_category = get_block_category(block_type)
+        prev_category = get_block_category(prev_block_type)
+
+        # 不同类型之间增加空行（相同类型但连续的文本块之间也增加空行）
+        if prev_category != 0:
+            markdown_lines.append("\n")
+
+        md_text = block_to_markdown(block, client)
+        if md_text:
+            markdown_lines.append(md_text)
+        prev_block_type = block_type
 
     return "".join(markdown_lines)
 
@@ -657,6 +714,7 @@ def main():
     parser.add_argument("--use-raw", action="store_true", help="使用 raw_content API（纯文本模式，不保留格式）")
     parser.add_argument("--api-base", default="https://open.feishu.cn", help="API 基础地址")
     parser.add_argument("--download-images", action="store_true", help="下载图片到本地（默认：不下载）")
+    parser.add_argument("--enable-heading-numbering", action="store_true", help="启用标题编号（默认：不启用）")
     parser.add_argument("--image-dir", "-i", help="图片保存目录（默认：输出目录/images）")
     parser.add_argument("--output-folder", help="输出文件夹路径（默认：文档标题作为文件夹）")
 
@@ -787,7 +845,7 @@ def main():
             print(f"获取到 {len(blocks)} 个块")
 
             print("正在转换为 Markdown...")
-            markdown_content = f"# {doc_title}\n\n{blocks_to_markdown(blocks, client)}"
+            markdown_content = f"# {doc_title}\n\n{blocks_to_markdown(blocks, client, args.enable_heading_numbering)}"
 
         # 写入文件
         output_file = base_dir / f"{base_dir.name}.md"

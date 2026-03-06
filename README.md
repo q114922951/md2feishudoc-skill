@@ -172,6 +172,7 @@ python feishu_to_md.py \
 | `--use-raw` | - | 使用纯文本模式 |
 | `--api-base` | - | API 基础地址 |
 | `--download-images` | - | 下载图片到本地 |
+| `--enable-heading-numbering` | - | 启用标题编号 |
 | `--image-dir` | - | 图片保存目录 |
 | `--output-folder` | - | 输出文件夹路径 |
 
@@ -294,11 +295,90 @@ md2feishudoc-skill/
 
 ### 安装方式
 
-将本仓库克隆到 Claude Code 的 skills 目录：
+将本仓库克隆或复制到 Claude Code 的 skills 目录：
 
 ```bash
 cd ~/.claude/skills
 git clone <repo-url> feishu-md-converter
+```
+
+或者复制整个目录：
+
+```bash
+cp -r /path/to/md2feishudoc-skill ~/.claude/skills/feishu-md-converter
+```
+
+### 添加到 skill-rules.json
+
+在 `.claude/skills/skill-rules.json` 中添加以下配置：
+
+```json
+{
+  "version": "1.0",
+  "skills": {
+    "feishu-md-converter": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": [
+          "导入飞书",
+          "导入文档",
+          "convert to feishu",
+          "to feishu",
+          "上传飞书",
+          "同步飞书",
+          "md转飞书",
+          "markdown飞书",
+          "飞书文档",
+          "导出飞书",
+          "飞书转markdown",
+          "feishu to md",
+          "feishu2md",
+          "飞书导出"
+        ],
+        "intentPatterns": [
+          "导入.*md",
+          "导入.*markdown",
+          "上传.*飞书",
+          "同步.*飞书",
+          "转换.*飞书",
+          "创建飞书文档",
+          "md.*飞书",
+          "markdown.*飞书",
+          "飞书.*md",
+          "飞书.*markdown",
+          "导出.*md",
+          "导出.*markdown",
+          "飞书.*导出",
+          "转换.*md"
+        ]
+      },
+      "fileTriggers": {
+        "pathPatterns": [
+          "**/*.md",
+          "**/*.markdown"
+        ],
+        "contentPatterns": [
+          "导入.*飞书",
+          "上传.*文档",
+          "同步.*飞书",
+          "飞书.*导出",
+          "飞书.*转换"
+        ]
+      }
+    }
+  }
+}
+```
+
+**注意**: 也可以使用 `skill-rules-claude.json` 文件，该文件已包含正确的 Claude Code 格式配置。
+
+### 验证安装
+
+```bash
+# 检查 JSON 语法
+cat ~/.claude/skills/skill-rules.json | jq .
 ```
 
 ### 触发方式

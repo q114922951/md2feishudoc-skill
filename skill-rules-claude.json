@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "skills": {
+    "feishu-md-converter": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": [
+          "导入飞书",
+          "导入文档",
+          "convert to feishu",
+          "to feishu",
+          "上传飞书",
+          "同步飞书",
+          "md转飞书",
+          "markdown飞书",
+          "飞书文档",
+          "导出飞书",
+          "飞书转markdown",
+          "feishu to md",
+          "feishu2md",
+          "飞书导出",
+          "飞书markdown",
+          "markdown feishu",
+          "md to feishu"
+        ],
+        "intentPatterns": [
+          "导入.*md",
+          "导入.*markdown",
+          "上传.*飞书",
+          "同步.*飞书",
+          "转换.*飞书",
+          "创建飞书文档",
+          "md.*飞书",
+          "markdown.*飞书",
+          "飞书.*md",
+          "飞书.*markdown",
+          "导出.*md",
+          "导出.*markdown",
+          "飞书.*导出",
+          "转换.*md"
+        ]
+      },
+      "fileTriggers": {
+        "pathPatterns": [
+          "**/*.md",
+          "**/*.markdown"
+        ],
+        "contentPatterns": [
+          "导入.*飞书",
+          "上传.*文档",
+          "同步.*飞书",
+          "飞书.*导出",
+          "飞书.*转换"
+        ]
+      }
+    }
+  }
+}

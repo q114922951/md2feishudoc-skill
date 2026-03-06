@@ -94,6 +94,7 @@ python feishu_to_md.py \
 | `--url` | ✅ | 飞书文档 URL（支持 docx 和 wiki） |
 | `--output` | - | 输出文件路径 |
 | `--download-images` | - | 下载图片到本地 |
+| `--enable-heading-numbering` | - | 启用标题编号 |
 | `--image-dir` | - | 图片保存目录 |
 | `--token` | - | 访问令牌（可选） |
 
