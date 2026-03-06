@@ -1,0 +1,141 @@
+{
+  "name": "md-to-feishu-doc",
+  "description": "将 Markdown 文件导入为飞书云文档。支持两种模式：1) import_task 方式 - 上传文件导入；2) 直接创建方式 - 解析文本块创建。包含所有权转移功能、8项文档校验、OAuth授权、Token自动管理。",
+  "version": "2.0.0",
+  "trigger": {
+    "keywords": [
+      "导入飞书",
+      "导入文档",
+      "convert to feishu",
+      "to feishu",
+      "上传飞书",
+      "同步飞书",
+      "md转飞书",
+      "markdown飞书",
+      "飞书文档"
+    ],
+    "intent_patterns": [
+      "导入.*md",
+      "导入.*markdown",
+      "上传.*飞书",
+      "同步.*飞书",
+      "转换.*飞书",
+      "创建飞书文档",
+      "md.*飞书",
+      "markdown.*飞书"
+    ],
+    "file_paths": [
+      "**/*.md",
+      "**/*.markdown"
+    ],
+    "content_patterns": [
+      "导入.*飞书",
+      "上传.*文档",
+      "同步.*飞书"
+    ]
+  },
+  "enforcement": "suggest",
+  "parameters": {
+    "source_type": {
+      "type": "string",
+      "description": "来源类型：text/file/url",
+      "required": false,
+      "default": "file",
+      "enum": ["text", "file", "url"]
+    },
+    "file_path": {
+      "type": "string",
+      "description": "MD 文件路径",
+      "required": false
+    },
+    "title": {
+      "type": "string",
+      "description": "文档标题",
+      "required": false
+    },
+    "import_mode": {
+      "type": "string",
+      "description": "导入模式：file=import_task API, direct=直接创建 API",
+      "required": false,
+      "enum": ["file", "direct"]
+    },
+    "folder_token": {
+      "type": "string",
+      "description": "目标文件夹 token",
+      "required": false
+    },
+    "no_validate": {
+      "type": "boolean",
+      "description": "跳过文档校验",
+      "required": false,
+      "default": false
+    },
+    "auto_transfer": {
+      "type": "boolean",
+      "description": "自动转移所有权给当前用户",
+      "required": false,
+      "default": false
+    }
+  },
+  "execution": {
+    "type": "python",
+    "entry_point": "md_to_feishu_doc.py",
+    "args_from_trigger": true
+  },
+  "dependencies": {
+    "python": ">=3.7",
+    "packages": [
+      "requests>=2.28.0"
+    ]
+  },
+  "configuration": {
+    "required_files": [
+      "config.json"
+    ],
+    "required_fields": [
+      "app_id",
+      "app_secret"
+    ]
+  },
+  "permissions": [
+    "docs:document:import",
+    "drive:drive",
+    "drive:drive:readonly",
+    "docx:document",
+    "docs:permission.member:transfer"
+  ],
+  "examples": [
+    {
+      "description": "交互式导入当前目录的 MD 文件",
+      "trigger": "把这个 md 文件导入飞书",
+      "context": "user提供了 ./README.md 文件路径"
+    },
+    {
+      "description": "使用 import_task 方式导入",
+      "trigger": "导入到飞书",
+      "params": {
+        "file_path": "./docs/guide.md",
+        "title": "使用指南",
+        "import_mode": "file"
+      }
+    },
+    {
+      "description": "跳过校验直接导入",
+      "trigger": "快速导入到飞书",
+      "params": {
+        "file_path": "./release-notes.md",
+        "title": "发布说明",
+        "no_validate": true
+      }
+    },
+    {
+      "description": "导入并转移所有权",
+      "trigger": "导入到飞书并转移所有权",
+      "params": {
+        "file_path": "./README.md",
+        "title": "项目文档",
+        "auto_transfer": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "app_id": "cli_xxxxxxxxxxxx",
+  "app_secret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "oauth_redirect_uri": "https://open.feishu.cn/api-explorer/loading",
+  "api_base": "https://open.feishu.cn",
+  "user_access_token": "",
+  "tenant_access_token": ""
+}
