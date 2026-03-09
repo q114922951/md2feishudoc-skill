@@ -437,18 +437,22 @@ def elements_to_markdown(elements: List[Dict[str, Any]]) -> str:
     return "".join(result)
 
 
-def block_to_markdown(block: Dict[str, Any], client: FeishuDocumentClient) -> str:
+def block_to_markdown(block: Dict[str, Any], client: FeishuDocumentClient,
+                     block_map: Dict[str, str] = None, indent_level: int = 0) -> str:
     """
     将单个块转换为 Markdown
 
     Args:
         block: 文档块
         client: 文档客户端（用于图片下载）
+        block_map: 块ID到块的映射（用于处理嵌套列表）
+        indent_level: 缩进层级（用于嵌套列表）
 
     Returns:
         Markdown 文本
     """
     block_type = block.get("block_type", 0)
+    indent = "  " * indent_level  # 每级缩进2个空格
 
     # 分割线
     if block_type == 22:
@@ -561,6 +565,18 @@ def block_to_markdown(block: Dict[str, Any], client: FeishuDocumentClient) -> st
     if block_type == 32:
         cell_data = block.get("table_cell", {})
         elements = cell_data.get("elements", [])
+        # 如果有子块，优先处理子块
+        if block_map and block.get("children"):
+            children_ids = block.get("children", [])
+            child_texts = []
+            for child_id in children_ids:
+                if child_id in block_map:
+                    child_block = block_map[child_id]
+                    # 递归处理子块（通常是文本块）
+                    child_text = block_to_markdown(child_block, client, block_map)
+                    child_texts.append(child_text)
+            return "".join(child_texts)
+        # 否则使用 elements
         text = elements_to_markdown(elements)
         return text
 
@@ -656,7 +672,7 @@ def process_blocks_with_tables(blocks: List[Dict[str, Any]], block_map: Dict[str
                     for c in range(column_size):
                         idx = r * column_size + c
                         if idx < len(cell_blocks):
-                            cell_text = block_to_markdown(cell_blocks[idx], client).strip()
+                            cell_text = block_to_markdown(cell_blocks[idx], client, block_map=block_map).strip()
                             row_cells.append(cell_text)
                         else:
                             row_cells.append("")
@@ -665,13 +681,13 @@ def process_blocks_with_tables(blocks: List[Dict[str, Any]], block_map: Dict[str
                 # 生成 Markdown 表格
                 if table_rows:
                     # 表头
-                    markdown_lines.append("| " + " | ".join(table_rows[0]) + " |")
+                    markdown_lines.append("| " + " | ".join(table_rows[0]) + " |\n")
                     # 分隔线
-                    markdown_lines.append("|" + "|".join(["---"] * column_size) + "|")
+                    markdown_lines.append("|" + "|".join(["---"] * column_size) + "|\n")
                     # 数据行
                     for row in table_rows[1:]:
-                        markdown_lines.append("| " + " | ".join(row) + " |")
-                    markdown_lines.append("")
+                        markdown_lines.append("| " + " | ".join(row) + " |\n")
+                    markdown_lines.append("\n")
             prev_block_type = block_type
             continue
 
@@ -736,23 +752,30 @@ def main():
         print(f"错误: 读取配置文件失败: {e}")
         sys.exit(1)
 
-    # 获取访问令牌
+    # 获取访问令牌（优先使用 user_access_token）
     if args.token:
         access_token = args.token
         print("使用命令行传入的 token")
     else:
-        app_id = cfg.get("app_id", "").strip()
-        app_secret = cfg.get("app_secret", "").strip()
-        if not app_id or not app_secret:
-            print("错误: 请在配置文件中填写 app_id 和 app_secret")
-            sys.exit(1)
+        # 优先使用 user_access_token
+        user_token = cfg.get("user_access_token", "").strip()
+        if user_token:
+            access_token = user_token
+            print("使用配置文件中的 user_access_token")
+        else:
+            # 回退到 tenant_access_token
+            app_id = cfg.get("app_id", "").strip()
+            app_secret = cfg.get("app_secret", "").strip()
+            if not app_id or not app_secret:
+                print("错误: 请在配置文件中填写 user_access_token 或 app_id/app_secret")
+                sys.exit(1)
 
-        try:
-            access_token = get_tenant_access_token(app_id, app_secret, args.api_base)
-            print("使用应用身份获取 token")
-        except Exception as e:
-            print(f"错误: 获取 token 失败: {e}")
-            sys.exit(1)
+            try:
+                access_token = get_tenant_access_token(app_id, app_secret, args.api_base)
+                print("使用应用身份获取 token (tenant_access_token)")
+            except Exception as e:
+                print(f"错误: 获取 token 失败: {e}")
+                sys.exit(1)
 
     # 提取文档 ID 或 Wiki Token
     document_id = None
@@ -772,18 +795,31 @@ def main():
             print(f"URL 类型: wiki")
             print(f"Wiki Token: {wiki_token}")
 
-            # 使用 Wiki API 获取 document_id
-            wiki_client = FeishuWikiClient(access_token, args.api_base)
+            # 首先尝试直接使用 Wiki token 作为文档 ID
             try:
-                document_id = wiki_client.wiki_url_to_document_id(wiki_token)
-                if not document_id:
-                    print(f"\n错误: 无法从 Wiki 节点获取文档 ID")
-                    sys.exit(1)
+                url = f"{args.api_base}/open-apis/docx/v1/documents/{wiki_token}"
+                result = request_json("GET", url, headers={"Authorization": f"Bearer {access_token}"})
+                if result.get("code") == 0:
+                    document_id = wiki_token
+                    print(f"直接使用 Wiki token 作为文档 ID: {document_id}")
+                else:
+                    # 如果直接访问失败，尝试使用 Wiki API
+                    wiki_client = FeishuWikiClient(access_token, args.api_base)
+                    document_id = wiki_client.wiki_url_to_document_id(wiki_token)
+                    if not document_id:
+                        print(f"\n错误: 无法从 Wiki 节点获取文档 ID")
+                        sys.exit(1)
             except Exception as e:
-                print(f"\n错误: 获取 Wiki 节点信息失败: {e}")
-                import traceback
-                traceback.print_exc()
-                sys.exit(1)
+                # 如果直接访问失败，尝试使用 Wiki API
+                try:
+                    wiki_client = FeishuWikiClient(access_token, args.api_base)
+                    document_id = wiki_client.wiki_url_to_document_id(wiki_token)
+                    if not document_id:
+                        print(f"\n错误: 无法从 Wiki 节点获取文档 ID")
+                        sys.exit(1)
+                except Exception as e2:
+                    print(f"\n错误: 获取 Wiki 文档失败: {e}")
+                    sys.exit(1)
         else:
             print(f"错误: 无法从 URL 中提取文档 ID 或 Wiki Token: {args.url}")
             print("支持的 URL 格式:")
@@ -804,7 +840,11 @@ def main():
         print(f"\n文档标题: {doc_title}")
 
         # 确定输出路径
-        if args.output_folder:
+        if args.output:
+            # 使用指定的完整输出文件路径
+            output_file = Path(args.output)
+            base_dir = output_file.parent
+        elif args.output_folder:
             # 使用指定的输出文件夹
             base_dir = Path(args.output_folder)
         else:
@@ -848,7 +888,12 @@ def main():
             markdown_content = f"# {doc_title}\n\n{blocks_to_markdown(blocks, client, args.enable_heading_numbering)}"
 
         # 写入文件
-        output_file = base_dir / f"{base_dir.name}.md"
+        if not args.output:
+            # 没有指定完整路径，使用默认文件名
+            output_file = base_dir / f"{base_dir.name}.md"
+        else:
+            # 已经在上面设置了 output_file
+            pass
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(markdown_content)
 

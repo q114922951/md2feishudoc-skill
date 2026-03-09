@@ -21,9 +21,12 @@
 - ✅ 完整格式保留（标题、列表、表格、代码块）
 - ✅ 图片下载到本地（可选）
 - ✅ 纯文本模式（可选）
+- ✅ 标题编号（可选）
 - ✅ 数学公式支持
 - ✅ 文件夹递归查找（Wiki）
 - ✅ Windows 编码支持
+- ✅ 指定输出路径
+- ✅ Wiki 直接访问（绕过空间限制）
 
 ## 安装依赖
 
@@ -255,6 +258,7 @@ md2feishudoc-skill/
 ├── README.md                   # 本文档
 ├── skill-rules.json            # Skill 触发规则
 ├── config.json.example         # 配置模板
+├── install_to_claude.py        # 安装脚本（一键安装到 Claude Code）
 ├── md_to_feishu_doc.py         # Markdown → 飞书
 ├── feishu_to_md.py            # 飞书 → Markdown
 ├── feishu_import_client.py     # import_task API 客户端
@@ -293,7 +297,158 @@ md2feishudoc-skill/
 
 本仓库是一个 Claude Code Skill，可以被 Claude Code 自动识别和调用。
 
-### 安装方式
+### 一键安装（推荐）
+
+使用安装脚本自动复制文件到 Claude Code skills 目录：
+
+```bash
+# 完整安装（包含所有文件和 Python 脚本）
+python install_to_claude.py --full
+
+# 最小安装（仅核心文件）
+python install_to_claude.py
+
+# 自定义安装路径
+python install_to_claude.py --target /custom/path/to/skills --full
+```
+
+**安装脚本功能：**
+- 自动检查必需文件
+- 支持最小安装和完整安装两种模式
+- 自动创建目标目录
+- 安装后验证文件完整性
+
+### 手动安装
+
+**方式 1：完整复制（包含所有功能）**
+
+```bash
+# 1. 创建 skill 目录
+mkdir -p ~/.claude/skills/feishu-md-converter
+
+# 2. 复制所有必要文件
+cp SKILL.md ~/.claude/skills/feishu-md-converter/
+cp skill-rules.json ~/.claude/skills/feishu-md-converter/
+cp README.md ~/.claude/skills/feishu-md-converter/
+cp config.json.example ~/.claude/skills/feishu-md-converter/
+cp -r docs/ ~/.claude/skills/feishu-md-converter/
+
+# 3. 复制 Python 脚本（用于直接调用）
+cp md_to_feishu_doc.py ~/.claude/skills/feishu-md-converter/
+cp feishu_to_md.py ~/.claude/skills/feishu-md-converter/
+cp feishu_import_client.py ~/.claude/skills/feishu-md-converter/
+cp feishu_ownership_transfer.py ~/.claude/skills/feishu-md-converter/
+cp feishu_validator.py ~/.claude/skills/feishu-md-converter/
+```
+
+**方式 2：最小安装（仅核心文档）**
+
+```bash
+# 只复制核心 skill 文件
+mkdir -p ~/.claude/skills/feishu-md-converter
+cp SKILL.md ~/.claude/skills/feishu-md-converter/
+cp skill-rules.json ~/.claude/skills/feishu-md-converter/
+
+# Python 脚本放在项目根目录使用
+cd /your/project/path
+# 使用脚本时指定完整路径：
+python ~/.claude/skills/feishu-md-converter/feishu_to_md.py --url "..."
+```
+
+### 添加到 skill-rules.json
+
+在 `~/.claude/skills/skill-rules.json` 中添加以下配置：
+
+```json
+{
+  "version": "1.0",
+  "skills": {
+    "feishu-md-converter": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": [
+          "飞书",
+          "导入飞书",
+          "导入文档",
+          "to feishu",
+          "上传飞书",
+          "同步飞书",
+          "md转飞书",
+          "markdown飞书",
+          "飞书文档",
+          "导出飞书",
+          "飞书转markdown",
+          "feishu to md",
+          "feishu2md",
+          "飞书导出",
+          "飞书wiki",
+          "wiki转md"
+        ],
+        "intentPatterns": [
+          "导入.*md.*飞书",
+          "markdown.*飞书",
+          "飞书.*导出",
+          "飞书.*md",
+          "wiki.*md",
+          "文档.*转换"
+        ]
+      },
+      "fileTriggers": {
+        "pathPatterns": [
+          "**/*.md"
+        ]
+      }
+    }
+  }
+}
+```
+
+### 文件说明
+
+将文件复制到 skills 目录后：
+
+| 文件 | 用途 |
+|------|------|
+| `SKILL.md` | Skill 核心定义（必需） |
+| `skill-rules.json` | 触发规则配置（如果未在全局配置） |
+| `README.md` | 使用说明和示例 |
+| `config.json.example` | 配置模板 |
+| `docs/` | API 参考和故障排查文档 |
+| `*.py` | Python 脚本（可选，用于直接命令行调用） |
+
+### 验证安装
+
+```bash
+# 1. 检查文件是否复制成功
+ls ~/.claude/skills/feishu-md-converter/
+
+# 2. 测试 skill 激活
+echo '{"session_id":"test","prompt":"如何将飞书文档转换为Markdown？"}' |   npx tsx ~/.claude/hooks/skill-activation-prompt.ts 2>/dev/null
+
+# 3. 如果配置了 hook，测试触发
+# 编辑一个 .md 文件，观察 skill 是否被激活
+```
+
+### 使用方式
+
+安装后，Claude Code 会自动识别相关关键词并建议使用此 skill：
+
+- **导入 Markdown 到飞书**：`导入飞书`、`md转飞书`
+- **从飞书导出 Markdown**：`飞书导出`、`飞书转markdown`、`wiki转md`
+- **处理 Wiki 文档**：`飞书wiki`
+
+### 注意事项
+
+1. **Python 环境**：直接调用 Python 脚本需要 Python 3.x 和 requests 库
+2. **配置文件**：首次使用前需要复制 `config.json.example` 并填写配置
+3. **Token 有效期**：user_access_token 约有效期 2 小时
+4. **权限要求**：访问私有 Wiki 需要 user_access_token
+
+---
+
+## 安装方式
 
 将本仓库克隆或复制到 Claude Code 的 skills 目录：
 
@@ -398,6 +553,24 @@ cat ~/.claude/skills/skill-rules.json | jq .
 - "feishu to md"
 - "feishu2md"
 - "飞书导出"
+
+## 更新日志
+
+### v1.2.0 (最新)
+- **修复**: 表格格式转换问题 - 表格行现在正确添加换行符
+- **新增**: `--output` 参数支持指定完整输出文件路径
+- **新增**: `--enable-heading-numbering` 参数支持标题自动编号
+- **新增**: Wiki 文档直接访问功能（使用 user_access_token 可访问私有 Wiki）
+- **新增**: 安装脚本 `install_to_claude.py` 用于一键安装到 Claude Code
+
+### v1.1.0
+- **新增**: 图片下载功能
+- **新增**: 数学公式支持
+- **新增**: Windows 编码支持
+- **新增**: 文件夹递归查找（Wiki）
+
+### v1.0.0
+- **初始版本**: Markdown ↔ Feishu 双向转换
 
 ## License
 

@@ -186,6 +186,56 @@ md2feishudoc-skill/
 3. **Wiki 支持**：飞书 → Markdown 支持从 Wiki URL 导出文档
 4. **图片下载**：导出时可选择是否下载图片到本地
 
+## Wiki 文档访问的关键秘诀
+
+### 核心原理
+
+飞书 Wiki 文档本质上是存储在 Wiki 空间中的普通文档，可以通过以下两种方式访问：
+
+```
+方式 A：Wiki API（复杂）
+Wiki URL → Wiki 节点 API → 获取文档 ID → 文档 API
+         ↓ 需要空间权限，容易失败
+
+方式 B：直接访问（推荐）✅
+Wiki URL → 直接用 token 作为文档 ID → 文档 API
+         ↓ 简单直接，绕过空间限制
+```
+
+### 关键要点
+
+| 要点 | 说明 |
+|------|------|
+| **使用 user_access_token** | 私有 Wiki 空间必须使用用户身份权限 |
+| **Wiki token = 文档 ID** | URL 中的 token 可直接作为文档 ID 使用 |
+| **绕过 Wiki API** | 不需要调用复杂的 Wiki 节点 API |
+
+### Token 优先级
+
+系统按以下优先级选择访问令牌：
+
+1. **命令行传入的 token**（`--token` 参数）
+2. **配置文件中的 user_access_token**
+3. **tenant_access_token**（回退方案，仅限公开文档）
+
+### 配置示例
+
+```json
+{
+  "user_access_token": "u-ccfdsDqk959FK7uvIilKm_k0n7exkhoXNUGa3N200CDq",
+  "app_id": "cli_a8fecf133d129013",
+  "app_secret": "EB1Rgv8ttxg5haAIP1AMz8Q5su0Gi2vp"
+}
+```
+
+### 常见错误处理
+
+| 错误 | 原因 | 解决方法 |
+|------|------|----------|
+| 找到 0 个 Wiki 空间 | 使用了 tenant_access_token | 配置 user_access_token |
+| HTTP 400: Bad Request | Wiki API 调用失败 | 使用直接访问方式 |
+| 无法从 Wiki 节点获取文档 ID | 节点权限不足 | 使用 token 直接访问 |
+
 ## 故障排查
 
 ### 错误：缺少权限
