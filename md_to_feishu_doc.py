@@ -496,14 +496,28 @@ def parse_markdown_with_tables(md: str) -> List[ParsedBlock]:
 
 
 def insert_children(token: str, api_base: str, document_id: str, children: List[Dict[str, Any]], index: int = 0):
-    """批量插入文档内容"""
+    """
+    批量插入文档内容
+
+    注意：飞书 API 限制每个 block 最多 50 个子元素，
+    该函数会自动将 children 分批插入，每批最多 50 个。
+    """
     headers = {"Authorization": f"Bearer {token}"}
-    url = f"{api_base}/open-apis/docx/v1/documents/{urllib.parse.quote(document_id)}/blocks/{urllib.parse.quote(document_id)}/children?document_revision_id=-1"
-    payload = {"index": index, "children": children}
-    obj = request_json("POST", url, headers=headers, data_obj=payload)
-    if obj.get("code") != 0:
-        msg = obj.get("msg") or "unexpected response"
-        raise RuntimeError(f"insert children failed: {msg}")
+
+    # 飞书 API 限制：每个 block 最多 50 个子元素
+    MAX_CHILDREN_PER_REQUEST = 50
+
+    # 分批插入
+    obj = None
+    for i in range(0, len(children), MAX_CHILDREN_PER_REQUEST):
+        chunk = children[i:i + MAX_CHILDREN_PER_REQUEST]
+        url = f"{api_base}/open-apis/docx/v1/documents/{urllib.parse.quote(document_id)}/blocks/{urllib.parse.quote(document_id)}/children?document_revision_id=-1"
+        payload = {"index": index + i, "children": chunk}
+        obj = request_json("POST", url, headers=headers, data_obj=payload)
+        if obj.get("code") != 0:
+            msg = obj.get("msg") or "unexpected response"
+            raise RuntimeError(f"insert children failed (chunk {i//MAX_CHILDREN_PER_REQUEST + 1}): {msg}")
+
     return obj
 
 
@@ -539,8 +553,13 @@ def insert_table_with_content(
     url = f"{api_base}/open-apis/docx/v1/documents/{urllib.parse.quote(document_id)}/blocks/{urllib.parse.quote(document_id)}/children?document_revision_id=-1"
     payload = {"index": index, "children": [table_block]}
 
+    print(f"[DEBUG] 正在插入表格结构: {len(cell_contents)} 个单元格")
+    print(f"[DEBUG] 表格结构: {json.dumps(table_block, ensure_ascii=False)}")
+
     result = request_json("POST", url, headers=headers, data_obj=payload)
     if result.get("code") != 0:
+        print(f"[ERROR] 创建表格失败: code={result.get('code')}, msg={result.get('msg')}")
+        print(f"[ERROR] 请求payload: {json.dumps(payload, ensure_ascii=False)}")
         raise RuntimeError(f"创建表格失败: {result.get('msg')}")
 
     # 获取返回的表格块和单元格 IDs
@@ -843,8 +862,15 @@ def main():
         try:
             err = e.read().decode("utf-8")
             print(err)
-        except Exception:
-            pass
+            # 尝试解析错误信息
+            try:
+                err_json = json.loads(err)
+                if 'code' in err_json and 'msg' in err_json:
+                    print(f"\n错误详情: code={err_json['code']}, msg={err_json['msg']}")
+            except Exception:
+                pass
+        except Exception as ex:
+            print(f"无法读取错误详情: {ex}")
         sys.exit(1)
     except Exception as e:
         print(f"错误: {e}")
